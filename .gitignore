@@ -1,3 +1,4 @@
 .vscode/
 __pycache__/
-catmgrd/catmgrd
+build/
+catmgrd/test_config.json
