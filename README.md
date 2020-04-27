@@ -5,7 +5,7 @@
 ```
 User(user_id, type_id, name, token)
 UserType(type_id, type_name, can_update, can_adduser, can_borrow, can_inspect)
-Book(book_id, title, author, isbn, available_count, comment)
+Book(book_id, title, author, isbn, available_count, description, comment)
 Record(record_id, user_id, book_id, return_date, borrow_date, deadline, final_deadline)
 ```
 
