@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS UserType(
     type_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    type_name VARCHAR(32),
+    type_name VARCHAR(32) UNIQUE,
     can_update BOOLEAN NOT NULL DEFAULT false,
     can_adduser BOOLEAN NOT NULL DEFAULT false,
     can_borrow BOOLEAN NOT NULL DEFAULT false,
@@ -20,8 +20,9 @@ CREATE TABLE IF NOT EXISTS Book(
     book_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(256) NOT NULL,
     author VARCHAR(128) NOT NULL,
-    isbn VARCHAR(128) NOT NULL,
+    isbn VARCHAR(128) NOT NULL UNIQUE,
     available_count INT NOT NULL CHECK(available_count >= 0),
+    description TEXT,
     comment TEXT
 );
 
