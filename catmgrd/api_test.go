@@ -36,7 +36,7 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	dsn := fmt.Sprintf("%s:%s@%s(%s:%d)/%s",
+	dsn := fmt.Sprintf("%s:%s@%s(%s:%d)/%s?parseTime=true",
 		config.Username, config.Password,
 		config.Protocol, config.Address,
 		config.Port, config.Database)
@@ -61,7 +61,7 @@ func TestMain(m *testing.M) {
 
 func TestAuthUser(t *testing.T) {
 	tb := []struct {
-		userID   int64
+		userID   int
 		password string
 		req      Permission
 		err      error
@@ -192,6 +192,36 @@ func TestCheckoutISBN(t *testing.T) {
 				t.Errorf("expected: %#v, got: %#v", e.title, book.Title)
 			}
 		}
+	}
+}
+
+func parseDate(val string) time.Time {
+	layout := "2006-01-02"
+	ret, _ := time.Parse(layout, val)
+	return ret
+}
+
+func TestCheckoutRecord(t *testing.T) {
+	e := Record{
+		RecordID:   1,
+		UserID:     6,
+		BookID:     1,
+		Returned:   false,
+		ReturnDate: time.Time{},
+		BorrowDate: parseDate("1926-08-17"),
+		DueDate:    parseDate("1926-09-17"),
+		FinalDate:  parseDate("2020-02-02"),
+	}
+	r, err := CheckoutRecord(db, 1)
+	if err != nil {
+		t.Error(err)
+	} else if r != e {
+		t.Errorf("expected: %+v, got: %+v", e, r)
+	}
+
+	_, err = CheckoutRecord(db, -1)
+	if err != ErrInvalidRecordID {
+		t.Error(err)
 	}
 }
 
