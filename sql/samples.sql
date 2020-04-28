@@ -47,3 +47,8 @@ VALUES
     ("Graph Drawing", "Whitesides, Sue H. (Ed.)", "978-3-540-37623-1", 6, "6th International Symposium, GD '98 Montreal, Canada, August 13-15, 1998 Proceedings", "conference"),
     ("Graph Drawing", "Kratochvil, Jan (Ed.)", "978-3-540-46648-2", 1, "7th International Symposium, GD'99, Stirin Castle, Czech Republic, September 15-19, 1999 Proceedings", NULL),
     ("Encyclopedia of Algorithms", "Kao, Ming-Yang (Ed.)", "978-1-4939-2865-1", 1, "Covers a wealth of problems currently relevant in diverse fields including biology, economics, financial software and computer science, amongst others", "TOO EXPENSIVE!");
+
+INSERT INTO Record
+    (user_id, book_id, borrow_date, deadline, final_deadline)
+VALUES
+    (6, 1, "1926-08-17", "1926-09-17", "2020-02-02");
