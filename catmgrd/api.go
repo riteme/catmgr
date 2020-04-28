@@ -2,6 +2,7 @@ package main
 
 import "fmt"
 import "errors"
+import "time"
 import "database/sql"
 import "crypto/sha1"
 
@@ -155,4 +156,50 @@ func SearchByISBN(db *sql.DB, isbn string) (Book, error) {
 	}
 
 	return book, nil
+}
+
+// BorrowBook attempts to borrow a book with `book_id` and leave a record.
+func BorrowBook(db *sql.DB, user_id, book_id int, cur, due, final time.Time) (int64, error) {
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	// try decreasing available count
+	result, err := tx.Exec(`
+		UPDATE Book
+		SET
+			available_count = available_count - 1
+		WHERE
+			book_id = ? AND
+			available_count > 0`, book_id)
+	if err != nil {
+		return 0, err
+	}
+
+	cnt, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	if cnt == 0 {
+		return 0, errors.New("No available book for borrowing")
+	}
+
+	result, err = tx.Exec(`
+		INSERT INTO Record
+			(user_id, book_id, borrow_date, deadline, final_deadline)
+		VALUES (?, ?, ?, ?, ?)`,
+		user_id, book_id, cur, due, final)
+	if err != nil {
+		return 0, err
+	}
+
+	record_id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	tx.Commit()
+	return record_id, nil
 }

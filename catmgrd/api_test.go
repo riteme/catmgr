@@ -85,12 +85,12 @@ func TestAuthUser(t *testing.T) {
 		{-1, "", Permission{false, false, false, false}, false},
 	}
 
-	for _, entry := range tb {
-		err := AuthUser(db, entry.userID, entry.password, entry.req)
+	for _, e := range tb {
+		err := AuthUser(db, e.userID, e.password, e.req)
 		ok := err == nil
-		if ok != entry.ok {
+		if ok != e.ok {
 			t.Error(err)
-			t.Errorf("fail: %+v", entry)
+			t.Errorf("fail: %+v", e)
 		}
 	}
 }
@@ -106,13 +106,13 @@ func TestGetUserTypeID(t *testing.T) {
 		{"guest", 4},
 	}
 
-	for _, entry := range tb {
-		got, err := GetUserTypeID(db, entry.type_name)
+	for _, e := range tb {
+		got, err := GetUserTypeID(db, e.type_name)
 		if err != nil {
 			t.Error(err)
-		} else if got != entry.type_id {
+		} else if got != e.type_id {
 			t.Errorf("type_name = %#v; expected: %d, got: %d",
-				entry.type_name, entry.type_id, got)
+				e.type_name, e.type_id, got)
 		}
 	}
 }
@@ -158,16 +158,16 @@ func TestCheckoutBook(t *testing.T) {
 		{-1, "978-1-4939-2865-1", "Encyclopedia of Algorithms", false},
 	}
 
-	for _, entry := range tb {
-		book, err := CheckoutBook(db, entry.book_id)
+	for _, e := range tb {
+		book, err := CheckoutBook(db, e.book_id)
 		ok := err == nil
-		if ok != entry.ok {
+		if ok != e.ok {
 			t.Error(err)
 		} else if ok {
-			if book.Title != entry.title {
-				t.Errorf("expected: %#v, got: %#v", entry.title, book.Title)
-			} else if book.ISBN != entry.isbn {
-				t.Errorf("expected: %#v, got: %#v", entry.isbn, book.ISBN)
+			if book.Title != e.title {
+				t.Errorf("expected: %#v, got: %#v", e.title, book.Title)
+			} else if book.ISBN != e.isbn {
+				t.Errorf("expected: %#v, got: %#v", e.isbn, book.ISBN)
 			}
 		}
 	}
@@ -186,14 +186,46 @@ func TestSearchByISBN(t *testing.T) {
 		{"978-1-4939-2865-12", "Encyclopedia of Algorithms", false},
 	}
 
-	for _, entry := range tb {
-		book, err := SearchByISBN(db, entry.isbn)
+	for _, e := range tb {
+		book, err := SearchByISBN(db, e.isbn)
 		ok := err == nil
-		if ok != entry.ok {
+		if ok != e.ok {
 			t.Error(err)
 		} else if ok {
-			if book.Title != entry.title {
-				t.Errorf("expected: %#v, got: %#v", entry.title, book.Title)
+			if book.Title != e.title {
+				t.Errorf("expected: %#v, got: %#v", e.title, book.Title)
+			}
+		}
+	}
+}
+
+func TestBorrowBook(t *testing.T) {
+	now := time.Now()
+	tb := []struct {
+		user_id         int
+		book_id         int
+		cur, due, final time.Time
+		ok              bool
+	}{
+		{3, 5, now, now, now, true},
+		{3, 11, now, now, now, false},
+		{3, -1, now, now, now, false},
+		{3, 5, now, now.Add(-time.Hour * 24), now, false},
+		{3, 5, now, now.Add(+time.Hour * 24), now, false},
+		{3, 5, now, now, now.Add(-time.Hour * 24), false},
+		{3, 5, now, now, now.Add(+time.Hour * 24), true},
+		{3, 5, now, now.Add(+time.Hour * 24), now.Add(+time.Hour * 24), true},
+	}
+
+	for _, e := range tb {
+		_, err := BorrowBook(db, e.user_id, e.book_id, e.cur, e.due, e.final)
+		if e.ok {
+			if err != nil {
+				t.Error(err)
+			}
+		} else {
+			if err == nil {
+				t.Errorf("failed: %+v", e)
 			}
 		}
 	}
