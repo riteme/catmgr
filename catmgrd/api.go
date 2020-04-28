@@ -40,6 +40,10 @@ type Book struct {
 	Comment        string
 }
 
+var ErrInvalidUserID = errors.New("Invalid user id")
+var ErrInvalidPassword = errors.New("Invalid password")
+var ErrPermissionDenied = errors.New("Permission denied")
+
 // AuthUser check `login` information against table User
 // in database `db`, which stores the sha1 hashes of passwords.
 // Requested permissions `req` are encapsulated in Permission struct.
@@ -56,22 +60,24 @@ func AuthUser(db *sql.DB, user_id int64, password string, req Permission) error 
 	err := db.QueryRow(query, user_id).
 		Scan(&token, &perm.Update, &perm.AddUser, &perm.Borrow, &perm.Inspect)
 	if err == sql.ErrNoRows {
-		return errors.New(fmt.Sprintf("Invalid user id: %d", user_id))
+		return ErrInvalidUserID
 	}
 	if err != nil {
 		return err
 	}
 
 	if hash != token {
-		return errors.New("Incorrect password")
+		return ErrInvalidPassword
 	}
 
 	if req.mask()&perm.mask() != req.mask() {
-		return errors.New("Permission denied")
+		return ErrPermissionDenied
 	}
 
 	return nil
 }
+
+var ErrInvalidUserType = errors.New("Invalid user type name/ID")
 
 // GetUserTypeID returns `type_id` of `type_name` defined in
 // UserType table.
@@ -80,7 +86,7 @@ func GetUserTypeID(db *sql.DB, type_name string) (int, error) {
 	query := `SELECT type_id FROM UserType WHERE type_name=?`
 	err := db.QueryRow(query, type_name).Scan(&type_id)
 	if err == sql.ErrNoRows {
-		return 0, errors.New(fmt.Sprintf("No user type named \"%s\"", type_name))
+		return 0, ErrInvalidUserType
 	}
 	if err != nil {
 		return 0, err
@@ -117,6 +123,8 @@ SELECT
 FROM Book
 WHERE `
 
+var ErrBookNotFound = errors.New("Book not found")
+
 func scanBook(row *sql.Row, book *Book) error {
 	err := row.Scan(
 		&book.BookID, &book.Title,
@@ -126,7 +134,7 @@ func scanBook(row *sql.Row, book *Book) error {
 		&book.Comment,
 	)
 	if err == sql.ErrNoRows {
-		return errors.New("Book not found")
+		return ErrBookNotFound
 	}
 
 	return err
@@ -145,8 +153,8 @@ func CheckoutBook(db *sql.DB, book_id int) (Book, error) {
 	return book, nil
 }
 
-// SearchByISBN obtains book information with `isbn`.
-func SearchByISBN(db *sql.DB, isbn string) (Book, error) {
+// CheckoutISBN obtains book information with `isbn`.
+func CheckoutISBN(db *sql.DB, isbn string) (Book, error) {
 	var book Book
 	row := db.QueryRow(selectBook+"isbn=?", isbn)
 
@@ -158,13 +166,33 @@ func SearchByISBN(db *sql.DB, isbn string) (Book, error) {
 	return book, nil
 }
 
+var month = time.Hour * 24 * 30
+
+var ErrNoAvailableBook = errors.New("No available book")
+var ErrInvalidBookID = errors.New("Invalid book id")
+
 // BorrowBook attempts to borrow a book with `book_id` and leave a record.
-func BorrowBook(db *sql.DB, user_id, book_id int, cur, due, final time.Time) (int64, error) {
+func BorrowBook(db *sql.DB, user_id, book_id int) (int64, error) {
+	now := time.Now()
+	due := now.Add(month)
+	final := now.Add(3 * month)
+
 	tx, err := db.Begin()
 	if err != nil {
 		return 0, err
 	}
 	defer tx.Rollback()
+
+	var exist int
+	err = db.QueryRow(
+		"SELECT COUNT(*) FROM Book WHERE book_id = ?", book_id).
+		Scan(&exist)
+	if err != nil {
+		return 0, err
+	}
+	if exist == 0 {
+		return 0, ErrInvalidBookID
+	}
 
 	// try decreasing available count
 	result, err := tx.Exec(`
@@ -183,14 +211,14 @@ func BorrowBook(db *sql.DB, user_id, book_id int, cur, due, final time.Time) (in
 		return 0, err
 	}
 	if cnt == 0 {
-		return 0, errors.New("No available book for borrowing")
+		return 0, ErrNoAvailableBook
 	}
 
 	result, err = tx.Exec(`
 		INSERT INTO Record
 			(user_id, book_id, borrow_date, deadline, final_deadline)
 		VALUES (?, ?, ?, ?, ?)`,
-		user_id, book_id, cur, due, final)
+		user_id, book_id, now, due, final)
 	if err != nil {
 		return 0, err
 	}

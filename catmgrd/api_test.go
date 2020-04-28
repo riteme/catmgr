@@ -23,7 +23,7 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	type TestConfig struct {
+	var config struct {
 		Username string
 		Password string
 		Protocol string
@@ -31,8 +31,6 @@ func TestMain(m *testing.M) {
 		Port     int
 		Database string
 	}
-
-	var config TestConfig
 	err = json.NewDecoder(fp).Decode(&config)
 	if err != nil {
 		panic(err)
@@ -66,31 +64,29 @@ func TestAuthUser(t *testing.T) {
 		userID   int64
 		password string
 		req      Permission
-		ok       bool
+		err      error
 	}{
-		{1, "root", Permission{true, true, true, true}, true},
-		{2, "admin", Permission{true, true, false, true}, true},
-		{233, "admin", Permission{true, true, false, true}, false},
-		{2, "admin", Permission{true, true, true, true}, false},
-		{2, "admin", Permission{false, false, false, true}, true},
-		{2, "admin", Permission{false, false, false, false}, true},
-		{3, "123456", Permission{false, false, true, false}, true},
-		{3, "1234567", Permission{false, false, true, false}, false},
-		{4, "123456", Permission{false, false, true, false}, true},
-		{5, "654321", Permission{false, false, true, false}, false},
-		{5, "654321", Permission{false, false, false, false}, true},
-		{5, "", Permission{false, false, false, false}, false},
-		{19260817, "", Permission{false, false, false, false}, false},
-		{0, "", Permission{false, false, false, false}, false},
-		{-1, "", Permission{false, false, false, false}, false},
+		{1, "root", Permission{true, true, true, true}, nil},
+		{2, "admin", Permission{true, true, false, true}, nil},
+		{233, "admin", Permission{true, true, false, true}, ErrInvalidUserID},
+		{2, "admin", Permission{true, true, true, true}, ErrPermissionDenied},
+		{2, "admin", Permission{false, false, false, true}, nil},
+		{2, "admin", Permission{false, false, false, false}, nil},
+		{3, "123456", Permission{false, false, true, false}, nil},
+		{3, "1234567", Permission{false, false, true, false}, ErrInvalidPassword},
+		{4, "123456", Permission{false, false, true, false}, nil},
+		{5, "654321", Permission{false, false, true, false}, ErrPermissionDenied},
+		{5, "654321", Permission{false, false, false, false}, nil},
+		{5, "", Permission{false, false, false, false}, ErrInvalidPassword},
+		{19260817, "", Permission{false, false, false, false}, ErrInvalidUserID},
+		{0, "", Permission{false, false, false, false}, ErrInvalidUserID},
+		{-1, "", Permission{false, false, false, false}, ErrInvalidUserID},
 	}
 
 	for _, e := range tb {
 		err := AuthUser(db, e.userID, e.password, e.req)
-		ok := err == nil
-		if ok != e.ok {
-			t.Error(err)
-			t.Errorf("fail: %+v", e)
+		if err != e.err {
+			t.Errorf("expected: %+v, got: %+v", e.err, err)
 		}
 	}
 }
@@ -99,17 +95,19 @@ func TestGetUserTypeID(t *testing.T) {
 	tb := []struct {
 		type_name string
 		type_id   int
+		err       error
 	}{
-		{"root", 1},
-		{"admin", 2},
-		{"student", 3},
-		{"guest", 4},
+		{"root", 1, nil},
+		{"admin", 2, nil},
+		{"student", 3, nil},
+		{"guest", 4, nil},
+		{"trump", 0, ErrInvalidUserType},
 	}
 
 	for _, e := range tb {
 		got, err := GetUserTypeID(db, e.type_name)
-		if err != nil {
-			t.Error(err)
+		if err != e.err {
+			t.Errorf("expected: %+v, got: %+v", e.err, err)
 		} else if got != e.type_id {
 			t.Errorf("type_name = %#v; expected: %d, got: %d",
 				e.type_name, e.type_id, got)
@@ -149,21 +147,20 @@ func TestCheckoutBook(t *testing.T) {
 		book_id int
 		isbn    string
 		title   string
-		ok      bool
+		err     error
 	}{
-		{1, "978-981-13-2971-5", "Monte Carlo Methods", true},
-		{5, "978-3-030-33836-7", "Database Design and Implementation", true},
-		{13, "978-3-662-53622-3", "Graph Theory", true},
-		{26, "978-1-4939-2865-1", "Encyclopedia of Algorithms", true},
-		{-1, "978-1-4939-2865-1", "Encyclopedia of Algorithms", false},
+		{1, "978-981-13-2971-5", "Monte Carlo Methods", nil},
+		{5, "978-3-030-33836-7", "Database Design and Implementation", nil},
+		{13, "978-3-662-53622-3", "Graph Theory", nil},
+		{26, "978-1-4939-2865-1", "Encyclopedia of Algorithms", nil},
+		{-1, "", "", ErrBookNotFound},
 	}
 
 	for _, e := range tb {
 		book, err := CheckoutBook(db, e.book_id)
-		ok := err == nil
-		if ok != e.ok {
-			t.Error(err)
-		} else if ok {
+		if err != e.err {
+			t.Errorf("expected: %+v, got: %+v", e.err, err)
+		} else if err == nil {
 			if book.Title != e.title {
 				t.Errorf("expected: %#v, got: %#v", e.title, book.Title)
 			} else if book.ISBN != e.isbn {
@@ -173,25 +170,24 @@ func TestCheckoutBook(t *testing.T) {
 	}
 }
 
-func TestSearchByISBN(t *testing.T) {
+func TestCheckoutISBN(t *testing.T) {
 	tb := []struct {
 		isbn  string
 		title string
-		ok    bool
+		err   error
 	}{
-		{"978-981-13-2971-5", "Monte Carlo Methods", true},
-		{"978-3-030-33836-7", "Database Design and Implementation", true},
-		{"978-3-662-53622-3", "Graph Theory", true},
-		{"978-1-4939-2865-1", "Encyclopedia of Algorithms", true},
-		{"978-1-4939-2865-12", "Encyclopedia of Algorithms", false},
+		{"978-981-13-2971-5", "Monte Carlo Methods", nil},
+		{"978-3-030-33836-7", "Database Design and Implementation", nil},
+		{"978-3-662-53622-3", "Graph Theory", nil},
+		{"978-1-4939-2865-1", "Encyclopedia of Algorithms", nil},
+		{"978-1-4939-2865-12", "Encyclopedia of Algorithms", ErrBookNotFound},
 	}
 
 	for _, e := range tb {
-		book, err := SearchByISBN(db, e.isbn)
-		ok := err == nil
-		if ok != e.ok {
-			t.Error(err)
-		} else if ok {
+		book, err := CheckoutISBN(db, e.isbn)
+		if err != e.err {
+			t.Errorf("expected: %+v, got: %+v", e.err, err)
+		} else if err == nil {
 			if book.Title != e.title {
 				t.Errorf("expected: %#v, got: %#v", e.title, book.Title)
 			}
@@ -200,33 +196,20 @@ func TestSearchByISBN(t *testing.T) {
 }
 
 func TestBorrowBook(t *testing.T) {
-	now := time.Now()
 	tb := []struct {
-		user_id         int
-		book_id         int
-		cur, due, final time.Time
-		ok              bool
+		user_id int
+		book_id int
+		err     error
 	}{
-		{3, 5, now, now, now, true},
-		{3, 11, now, now, now, false},
-		{3, -1, now, now, now, false},
-		{3, 5, now, now.Add(-time.Hour * 24), now, false},
-		{3, 5, now, now.Add(+time.Hour * 24), now, false},
-		{3, 5, now, now, now.Add(-time.Hour * 24), false},
-		{3, 5, now, now, now.Add(+time.Hour * 24), true},
-		{3, 5, now, now.Add(+time.Hour * 24), now.Add(+time.Hour * 24), true},
+		{3, 5, nil},
+		{3, 11, ErrNoAvailableBook},
+		{3, -1, ErrInvalidBookID},
 	}
 
 	for _, e := range tb {
-		_, err := BorrowBook(db, e.user_id, e.book_id, e.cur, e.due, e.final)
-		if e.ok {
-			if err != nil {
-				t.Error(err)
-			}
-		} else {
-			if err == nil {
-				t.Errorf("failed: %+v", e)
-			}
+		_, err := BorrowBook(db, e.user_id, e.book_id)
+		if err != e.err {
+			t.Errorf("expected: %+v, got: %+v", e.err, err)
 		}
 	}
 }
