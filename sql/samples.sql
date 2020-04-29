@@ -15,7 +15,8 @@ VALUES
     (3, "nano", "7c4a8d09ca3762af61e59520943dc26494f8941b"),    # 123456
     (4, "cxk", "dd5fef9c1c1da1394d6d34b248c51be2ad740840"),     # 654321
     (3, "ayaya", "7c4a8d09ca3762af61e59520943dc26494f8941b"),   # 123456
-    (3, "lemon", "7c4a8d09ca3762af61e59520943dc26494f8941b");   # 123456
+    (3, "lemon", "7c4a8d09ca3762af61e59520943dc26494f8941b"),   # 123456
+    (3, "test", "7c4a8d09ca3762af61e59520943dc26494f8941b");   # 123456
 
 -- ALL FROM springer.com
 INSERT INTO Book
@@ -25,7 +26,7 @@ VALUES
     ("Compiler Design", "Hack, Sebastian, Wilhelm, Reinhard, Seidl, Helmut", "978-3-642-17637-1", 1, NULL, NULL),
     ("Energy Internet", "Zobaa, Ahmed F, Cao, Junwei (Eds.)", "978-3-030-45452-4", 5, "Provides an ideal resource for students in advanced graduate-level courses and special topics in energy, information and control systems", "5 books"),
     ("Systems Benchmarking", "Kounev, Samuel, Lange, Klaus-Dieter, von Kistowski, Jóakim", "978-3-030-41704-8", 3, "Provides theoretical and practical foundations as well as an in-depth look at modern benchmarks and benchmark development", NULL),
-    ("Database Design and Implementation", "Sciore, Edward", "978-3-030-33836-7", 99, NULL, "too many books!"),
+    ("Database Design and Implementation", "Sciore, Edward", "978-3-030-33836-7", 9999, NULL, "too many books!"),
     ("Mathematical Modeling and Computational Tools", "Bhattacharya, Somnath, Kumar, Jitendra, Ghoshal, Koeli (Eds.)", "978-981-15-3615-1", 23, "Collects a wide-range of topics in mathematics, statistics, engineering, healthcare, and their applications", "23 books"),
     ("Foundations of Software Science and Computation Structures", "Goubault-Larrecq, Jean, König, Barbara (Eds.)", "978-3-030-45231-5", 1, NULL, "open access"),
     ("Cornerstones", "Birkhäuser Boston", "2197-182X", 2, "Cornerstones comprises textbooks that focus on what students need to know and what faculty should teach regarding various selected topics in pure and applied mathematics and related subjects. Aimed at aspiring young mathematicians at the advanced undergraduate to the second-year graduate level, books that appear in this series are intended to serve as the definitive advanced texts for the next generation of mathematicians. By enlisting only expert mathematicians and leading researchers in each field who are top-notch expositors with established track records, Cornerstones volumes are models of clarity that provide authoritative modern treatments of the essential subjects of pure and applied mathematics while capturing the beauty and excitement of mathematics for the reader. The Series Editors themselves are accomplished researchers with considerable writing experience, and seek to infuse each text with excellence and purpose through a collaborative, yet highly rigorous selection and reviewing protocol.", NULL),
