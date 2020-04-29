@@ -101,7 +101,7 @@ func TestGetUserTypeID(t *testing.T) {
 		{"admin", 2, nil},
 		{"student", 3, nil},
 		{"guest", 4, nil},
-		{"trump", 0, ErrInvalidUserType},
+		{"trump", -1, ErrInvalidUserType},
 	}
 
 	for _, e := range tb {
@@ -234,10 +234,109 @@ func TestBorrowBook(t *testing.T) {
 		{3, 5, nil},
 		{3, 11, ErrNoAvailableBook},
 		{3, -1, ErrInvalidBookID},
+		{6, 10, nil},
+		{7, 10, ErrSuspendedUser},
+		{4, 10, nil},
 	}
 
 	for _, e := range tb {
 		_, err := BorrowBook(db, e.user_id, e.book_id)
+		if err != e.err {
+			t.Errorf("expected: %+v, got: %+v", e.err, err)
+		}
+	}
+}
+
+type fakeRecord struct {
+	user_id int
+	book_id int
+	ret     *time.Time
+	borrow  time.Time
+	due     time.Time
+	final   time.Time
+	err     error
+}
+
+func insertFakeRecord(r fakeRecord) (int, error) {
+	result, err := db.Exec(`
+		INSERT INTO Record
+			(user_id, book_id, borrow_date, deadline, final_deadline)
+		VALUES (?, ?, ?, ?, ?)`,
+		r.user_id, r.book_id, r.borrow, r.due, r.final)
+	if err != nil {
+		return -1, err
+	}
+
+	record_id, err := result.LastInsertId()
+	if err != nil {
+		return -1, err
+	}
+
+	if r.ret != nil {
+		_, err = db.Exec(`
+			UPDATE Record
+			SET
+				return_date = ?
+			WHERE record_id = ?`,
+			r.ret, record_id)
+		if err != nil {
+			return -1, err
+		}
+	}
+
+	return int(record_id), nil
+}
+
+func TestExtendDeadline(t *testing.T) {
+	err := ExtendDeadline(db, -1)
+	if err != ErrInvalidRecordID {
+		t.Fatalf("expected <invalid record id>, got: %+v", err)
+	}
+
+	today := time.Now()
+	tb := []fakeRecord{
+		{8, 5, nil, today, today.Add(day), today.Add(day + month), nil},
+		{8, 5, &today, today, today, today, ErrAlreadyReturned},
+		{8, 5, nil, today.Add(-2 * day), today.Add(-day), today.Add(3 * month), ErrOverdue},
+		{8, 5, nil, today, today.Add(month), today.Add(month * 2), ErrNotExtensible},
+		{8, 5, nil, today, today.Add(day), today.Add(week), ErrFinalDeadline},
+	}
+
+	for _, e := range tb {
+		record_id, err := insertFakeRecord(e)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = ExtendDeadline(db, record_id)
+		if err != e.err {
+			t.Errorf("expected: %+v, got: %+v", e.err, err)
+		}
+	}
+}
+
+func TestReturnBook(t *testing.T) {
+	err := ReturnBook(db, -1)
+	if err != ErrInvalidRecordID {
+		t.Fatalf("expected <invalid record id>, got: %+v", err)
+	}
+
+	today := time.Now()
+	tb := []fakeRecord{
+		{8, 5, nil, today, today.Add(day), today.Add(day + month), nil},
+		{8, 5, &today, today, today, today, ErrAlreadyReturned},
+		{8, 5, nil, today.Add(-2 * day), today.Add(-day), today.Add(3 * month), nil},
+		{8, 5, nil, today, today.Add(month), today.Add(month * 2), nil},
+		{8, 5, nil, today, today.Add(day), today.Add(week), nil},
+	}
+
+	for _, e := range tb {
+		record_id, err := insertFakeRecord(e)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = ReturnBook(db, record_id)
 		if err != e.err {
 			t.Errorf("expected: %+v, got: %+v", e.err, err)
 		}

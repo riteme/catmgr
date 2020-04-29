@@ -1,4 +1,4 @@
-module github.com/riteme/catmgr/catmgrd
+module catmgrd
 
 go 1.14
 

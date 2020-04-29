@@ -6,6 +6,13 @@ import "time"
 import "database/sql"
 import "crypto/sha1"
 
+var (
+	day   = time.Hour * 24
+	week  = day * 7
+	month = day * 30
+	year  = day * 365
+)
+
 type Permission struct {
 	Update  bool
 	AddUser bool
@@ -55,10 +62,13 @@ var ErrInvalidUserID = errors.New("Invalid user ID")
 var ErrInvalidPassword = errors.New("Invalid password")
 var ErrPermissionDenied = errors.New("Permission denied")
 
-// AuthUser check `login` information against table User
+// `AuthUser` check `login` information against table User
 // in database `db`, which stores the sha1 hashes of passwords.
 // Requested permissions `req` are encapsulated in Permission struct.
 // Auth success if no error returned.
+//
+// May return `ErrInvalidUserID`, `ErrInvalidPassword` or
+// `ErrPermissionDenied`.
 func AuthUser(db *sql.DB, user_id int, password string, req Permission) error {
 	hash_bytes := sha1.Sum([]byte(password))
 	hash := fmt.Sprintf("%x", hash_bytes)
@@ -90,23 +100,28 @@ func AuthUser(db *sql.DB, user_id int, password string, req Permission) error {
 
 var ErrInvalidUserType = errors.New("Invalid user type name/ID")
 
-// GetUserTypeID returns `type_id` of `type_name` defined in
+// `GetUserTypeID` returns `type_id` of `type_name` defined in
 // UserType table.
+//
+// Returns `ErrInvalidUserType` when `type_name` is not found
+// in table UserType.
 func GetUserTypeID(db *sql.DB, type_name string) (int, error) {
 	var type_id int
 	query := `SELECT type_id FROM UserType WHERE type_name=?`
 	err := db.QueryRow(query, type_name).Scan(&type_id)
 	if err == sql.ErrNoRows {
-		return 0, ErrInvalidUserType
+		return -1, ErrInvalidUserType
 	}
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
 
 	return type_id, nil
 }
 
-// AddUser simply insert a new user record into User table.
+// `AddUser` simply insert a new user record into User table.
+//
+// Returns the ID of newly added user.
 func AddUser(db *sql.DB, type_id int, username string, password string) (int, error) {
 	token := fmt.Sprintf("%x", sha1.Sum([]byte(password)))
 	result, err := db.Exec(
@@ -114,12 +129,12 @@ func AddUser(db *sql.DB, type_id int, username string, password string) (int, er
 		type_id, username, token,
 	)
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
 
 	user_id, err := result.LastInsertId()
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
 
 	return int(user_id), nil
@@ -151,7 +166,10 @@ func scanBook(row *sql.Row, book *Book) error {
 	return err
 }
 
-// CheckoutBook obtains book information with id `book_id`.
+// `CheckoutBook` obtains book information with id `book_id`.
+//
+// Book information is stored in struct `Book`. When no book
+// matches `book_id`, an `ErrBookNotFound` is returned.
 func CheckoutBook(db *sql.DB, book_id int) (Book, error) {
 	var book Book
 	row := db.QueryRow(selectBook+"book_id=?", book_id)
@@ -164,7 +182,11 @@ func CheckoutBook(db *sql.DB, book_id int) (Book, error) {
 	return book, nil
 }
 
-// CheckoutISBN obtains book information with `isbn`.
+// `CheckoutISBN` obtains book information with `isbn`. Similar to
+// `CheckoutBook`.
+//
+// Book information is stored in struct `Book`. When no book
+// matches `book_id`, an `ErrBookNotFound` is returned.
 func CheckoutISBN(db *sql.DB, isbn string) (Book, error) {
 	var book Book
 	row := db.QueryRow(selectBook+"isbn=?", isbn)
@@ -180,6 +202,9 @@ func CheckoutISBN(db *sql.DB, isbn string) (Book, error) {
 var ErrInvalidRecordID = errors.New("Invalid record ID")
 
 // CheckoutRecord retrieves record with `record_id`.
+//
+// Record information is stored in struct `Record`. When no record
+// matches `record_id`, an `ErrInvalidRecordID` is returned.
 func CheckoutRecord(db *sql.DB, record_id int) (Record, error) {
 	var r Record
 	var return_date sql.NullTime
@@ -210,32 +235,53 @@ func CheckoutRecord(db *sql.DB, record_id int) (Record, error) {
 	return r, err
 }
 
-var month = time.Hour * 24 * 30
-
 var ErrNoAvailableBook = errors.New("No available book")
 var ErrInvalidBookID = errors.New("Invalid book ID")
+var ErrSuspendedUser = errors.New("User suspended: you have more than 3 overdue books")
 
-// BorrowBook attempts to borrow a book with `book_id` and leave a record.
-// TODO: Refuse suspended users
+// BorrowBook attempts to borrow a book with `book_id` and add a record.
+//
+// The ID of newly added record is returned when success.
+// If there is no available book, `ErrNoAvailableBook` is returned.
+// If no book has `book_id`, `ErrInvalidBookID` is returned.
+// If the user with `user_id` has more than 3 overdue book records,
+// `BorrowBook` rejects this request.
 func BorrowBook(db *sql.DB, user_id, book_id int) (int, error) {
 	var tmp int
 	err := db.QueryRow(
 		"SELECT book_id FROM Book WHERE book_id = ?", book_id).
 		Scan(&tmp)
 	if err == sql.ErrNoRows {
-		return 0, ErrInvalidBookID
+		return -1, ErrInvalidBookID
 	}
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
 
 	now := time.Now()
+	var overdue_count int
+	err = db.QueryRow(`
+		SELECT COUNT(*)
+		FROM Record
+		WHERE
+			user_id = ? AND
+			return_date IS NULL AND
+			deadline < ?`,
+		user_id, now).
+		Scan(&overdue_count)
+	if err != nil {
+		return -1, err
+	}
+	if overdue_count > 3 {
+		return -1, ErrSuspendedUser
+	}
+
 	due := now.Add(month)
 	final := now.Add(3 * month)
 
 	tx, err := db.Begin()
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
 	defer tx.Rollback()
 
@@ -248,15 +294,15 @@ func BorrowBook(db *sql.DB, user_id, book_id int) (int, error) {
 			book_id = ? AND
 			available_count > 0`, book_id)
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
 
 	cnt, err := result.RowsAffected()
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
 	if cnt == 0 {
-		return 0, ErrNoAvailableBook
+		return -1, ErrNoAvailableBook
 	}
 
 	result, err = tx.Exec(`
@@ -265,36 +311,56 @@ func BorrowBook(db *sql.DB, user_id, book_id int) (int, error) {
 		VALUES (?, ?, ?, ?, ?)`,
 		user_id, book_id, now, due, final)
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
 
 	record_id, err := result.LastInsertId()
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
 
 	tx.Commit()
 	return int(record_id), nil
 }
 
-var week = time.Hour * 24 * 7
-
+var ErrAlreadyReturned = errors.New("This book has been returned")
 var ErrOverdue = errors.New("Cannot extend deadline for overdue records")
 var ErrNotExtensible = errors.New("Do extend deadline in the last week")
 var ErrFinalDeadline = errors.New("Must return book in three months")
 
+// `ExtendDeadline` tries to extend deadline of a specific record
+// with `record_id` for a month. Deadlines are not allowed to be later than
+// final deadlines, in which case an `ErrFinalDeadline` will be returned.
+//
+// `ErrInvalidRecordID` occurs when no record matches `record_id`.
+//
+// Attempting to extend deadline for returned or overdue records is invalid, which
+// will result in `ErrAlreadyReturned` and `ErrOverdue` respectively.
+// Extending deadline is limited within the last week before deadline,
+// and an `ErrNotExtensible` will be returned otherwise.
+//
+// NOTE: this function does not check `user_id`. Anyone who knows
+// `record_id` can do this.
 func ExtendDeadline(db *sql.DB, record_id int) error {
+	var is_null int
 	var due, final time.Time
-	err := db.QueryRow(`
-		SELECT deadline, final_deadline
-		FROM Record
-		WHERE record_id = ?`, record_id).
-		Scan(&due, &final)
+	err := db.QueryRow(
+		`SELECT
+			ISNULL(return_date),
+			deadline,
+			final_deadline
+		FROM Record WHERE record_id=?`,
+		record_id).
+		Scan(&is_null, &due, &final)
 	if err == sql.ErrNoRows {
 		return ErrInvalidRecordID
 	}
 	if err != nil {
 		return err
+	}
+
+	if is_null == 0 {
+		return ErrAlreadyReturned
 	}
 
 	now := time.Now()
@@ -322,19 +388,23 @@ func ExtendDeadline(db *sql.DB, record_id int) error {
 	return nil
 }
 
-var ErrAlreadyReturned = errors.New("This book has been returned")
-
+// `ReturnBook` returns book for record with `record_id`.
+//
+// If no record matches `record_id`, an `ErrInvaildRecordID` is returned.
+// If the record is marked as "returned", an `ErrAlreadyReturned` is returned.
+//
+// NOTE: this function does not check `user_id`.
 func ReturnBook(db *sql.DB, record_id int) error {
-	var is_returned int
-	err := db.QueryRow("SELECT ISNULL(returned_date) FROM Record WHERE record_id=?", record_id).
-		Scan(&is_returned)
+	var is_null int
+	err := db.QueryRow("SELECT ISNULL(return_date) FROM Record WHERE record_id=?", record_id).
+		Scan(&is_null)
 	if err == sql.ErrNoRows {
 		return ErrInvalidRecordID
 	}
 	if err != nil {
 		return err
 	}
-	if is_returned == 1 {
+	if is_null == 0 {
 		return ErrAlreadyReturned
 	}
 
@@ -352,7 +422,7 @@ func ReturnBook(db *sql.DB, record_id int) error {
 	defer tx.Rollback()
 
 	now := time.Now()
-	_, err = tx.Exec("UPDATE Record SET returned_date=? WHERE record_id=?", now, record_id)
+	_, err = tx.Exec("UPDATE Record SET return_date=? WHERE record_id=?", now, record_id)
 	if err != nil {
 		return err
 	}
