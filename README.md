@@ -11,6 +11,7 @@ Record(record_id, user_id, book_id, return_date, borrow_date, deadline, final_de
 
 ## Commands
 
+* new: add a new book record.
 * update: update book information (add/remove)
 * adduser: add new user account
 * show: checkout book information
