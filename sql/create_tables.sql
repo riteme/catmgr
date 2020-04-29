@@ -18,9 +18,9 @@ CREATE TABLE IF NOT EXISTS User(
 
 CREATE TABLE IF NOT EXISTS Book(
     book_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(256) NOT NULL,
-    author VARCHAR(128) NOT NULL,
-    isbn VARCHAR(128) NOT NULL UNIQUE,
+    title VARCHAR(256),
+    author VARCHAR(128),
+    isbn VARCHAR(128) UNIQUE,
     available_count INT NOT NULL CHECK(available_count >= 0),
     description TEXT,
     comment TEXT
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS Record(
     record_id INT NOT NULL AUTO_INCREMENT,
     user_id INT NOT NULL,
     book_id INT NOT NULL,
-    return_date DATE DEFAULT NULL,
+    return_date DATE,
     borrow_date DATE NOT NULL,
     deadline DATE NOT NULL CHECK(deadline >= borrow_date),
     final_deadline DATE NOT NULL CHECK(final_deadline >= deadline),
