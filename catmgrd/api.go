@@ -1,8 +1,9 @@
 package main
 
 import "fmt"
-import "errors"
 import "time"
+import "errors"
+import "strings"
 import "database/sql"
 import "crypto/sha1"
 
@@ -45,6 +46,14 @@ type Book struct {
 	AvailableCount int
 	Description    string
 	Comment        string
+}
+
+type BookInfo struct {
+	Title       *string
+	Author      *string
+	ISBN        *string
+	Description *string
+	Comment     *string
 }
 
 type Record struct {
@@ -142,7 +151,10 @@ func AddUser(db *sql.DB, type_id int, username string, password string) (int, er
 
 var selectBook = `
 SELECT
-	book_id, title, author, isbn,
+	book_id,
+	COALESCE(title, '(no title)'),
+	COALESCE(author, '(no author)'),
+	COALESCE(isbn, '(no isbn)'),
 	available_count,
 	COALESCE(description, '(no description)'),
 	COALESCE(comment, '(no comment)')
@@ -439,3 +451,59 @@ func ReturnBook(db *sql.DB, record_id int) error {
 	tx.Commit()
 	return nil
 }
+
+// `NewBook` simply insert a new book record into table Book.
+// More information can be added by `UpdateBook`.
+// Book's available count is initially 0.
+func NewBook(db *sql.DB) (int, error) {
+	result, err := db.Exec("INSERT INTO Book SET available_count = 0")
+	if err != nil {
+		return -1, err
+	}
+
+	book_id, err := result.LastInsertId()
+	if err != nil {
+		return -1, err
+	}
+
+	return int(book_id), nil
+}
+
+func UpdateBook(db *sql.DB, book_id, delta_cnt int, info BookInfo) error {
+	var buf strings.Builder
+	buf.WriteString("UPDATE Book SET ")
+
+	var args []interface{}
+	if info.Author != nil {
+		buf.WriteString("author=?,")
+		args = append(args, info.Author)
+	}
+	if info.Comment != nil {
+		buf.WriteString("comment=?,")
+		args = append(args, info.Comment)
+	}
+	if info.Description != nil {
+		buf.WriteString("description=?,")
+		args = append(args, info.Description)
+	}
+	if info.ISBN != nil {
+		buf.WriteString("isbn=?,")
+		args = append(args, info.ISBN)
+	}
+	if info.Title != nil {
+		buf.WriteString("title=?,")
+		args = append(args, info.Title)
+	}
+
+	buf.WriteString("available_count=available_count+(?) ")
+	buf.WriteString("WHERE book_id=?")
+	args = append(args, delta_cnt)
+	args = append(args, book_id)
+
+	_, err := db.Exec(buf.String(), args...)
+	return err
+}
+
+// TODO:
+// * search by title/author
+// * query borrow history with filtering

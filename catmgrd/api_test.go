@@ -342,3 +342,59 @@ func TestReturnBook(t *testing.T) {
 		}
 	}
 }
+
+func TestNewBook(t *testing.T) {
+	book_id, err := NewBook(db)
+	if err != nil {
+		t.Error(err)
+	}
+	if book_id <= 1 {
+		t.Error("invalid book id")
+	}
+}
+
+func TestUpdateBook(t *testing.T) {
+	book_id, err := NewBook(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	author := "ayaya"
+	title := "a nice book"
+	text := "naive"
+	no_desc := "(no description)"
+	isbn := randString(8)
+	count := 998
+	err = UpdateBook(db, book_id, count, BookInfo{
+		Author:  &author,
+		Comment: &text,
+		Title:   &title,
+		ISBN:    &isbn,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	book, err := CheckoutBook(db, book_id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if book.Author != author {
+		t.Errorf("expected: %#v, got: %#v", author, book.Author)
+	}
+	if book.AvailableCount != count {
+		t.Errorf("expected: %#v, got: %#v", count, book.AvailableCount)
+	}
+	if book.Comment != text {
+		t.Errorf("expected: %#v, got: %#v", text, book.Comment)
+	}
+	if book.Description != no_desc {
+		t.Errorf("expected: %#v, got: %#v", no_desc, book.Description)
+	}
+	if book.ISBN != isbn {
+		t.Errorf("expected: %#v, got: %#v", isbn, book.ISBN)
+	}
+	if book.Title != title {
+		t.Errorf("expected: %#v, got: %#v", title, book.Title)
+	}
+}
