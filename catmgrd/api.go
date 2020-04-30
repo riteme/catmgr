@@ -14,6 +14,10 @@ var (
 	year  = day * 365
 )
 
+type RowScanner interface {
+	Scan(dest ...interface{}) error
+}
+
 type Permission struct {
 	Update  bool
 	AddUser bool
@@ -163,10 +167,6 @@ WHERE `
 
 var ErrBookNotFound = errors.New("Book not found")
 
-type RowScanner interface {
-	Scan(dest ...interface{}) error
-}
-
 func scanBook(row RowScanner) (Book, error) {
 	var book Book
 	err := row.Scan(
@@ -212,30 +212,22 @@ func CheckoutISBN(db *sql.DB, isbn string) (Book, error) {
 	return book, nil
 }
 
-var ErrInvalidRecordID = errors.New("Invalid record ID")
+var selectRecord = `
+SELECT
+	record_id, user_id, book_id,
+	return_date, borrow_date,
+	deadline, final_deadline
+FROM Record
+WHERE `
 
-// CheckoutRecord retrieves record with `record_id`.
-//
-// Record information is stored in struct `Record`. When no record
-// matches `record_id`, an `ErrInvalidRecordID` is returned.
-func CheckoutRecord(db *sql.DB, record_id int) (Record, error) {
-	var r Record
+func scanRecord(row RowScanner) (Record, error) {
 	var return_date sql.NullTime
-	err := db.QueryRow(`
-		SELECT
-			record_id, user_id, book_id,
-			return_date, borrow_date,
-			deadline, final_deadline
-		FROM Record
-		WHERE record_id = ?`, record_id).
-		Scan(
-			&r.RecordID, &r.UserID, &r.BookID,
-			&return_date, &r.BorrowDate,
-			&r.DueDate, &r.FinalDate,
-		)
-	if err == sql.ErrNoRows {
-		return Record{}, ErrInvalidRecordID
-	}
+	var r Record
+	err := row.Scan(
+		&r.RecordID, &r.UserID, &r.BookID,
+		&return_date, &r.BorrowDate,
+		&r.DueDate, &r.FinalDate,
+	)
 	if err != nil {
 		return Record{}, err
 	}
@@ -243,6 +235,25 @@ func CheckoutRecord(db *sql.DB, record_id int) (Record, error) {
 	if return_date.Valid {
 		r.Returned = true
 		r.ReturnDate = return_date.Time
+	}
+
+	return r, nil
+}
+
+var ErrInvalidRecordID = errors.New("Invalid record ID")
+
+// CheckoutRecord retrieves record with `record_id`.
+//
+// Record information is stored in struct `Record`. When no record
+// matches `record_id`, an `ErrInvalidRecordID` is returned.
+func CheckoutRecord(db *sql.DB, record_id int) (Record, error) {
+	row := db.QueryRow(selectRecord+"record_id = ?", record_id)
+	r, err := scanRecord(row)
+	if err == sql.ErrNoRows {
+		return Record{}, ErrInvalidRecordID
+	}
+	if err != nil {
+		return Record{}, err
 	}
 
 	return r, err
@@ -557,6 +568,41 @@ func SearchBookByAuthor(db *sql.DB, keyword string) ([]Book, error) {
 	return list, nil
 }
 
-// TODO:
-// * search by title/author
-// * query borrow history with filtering
+// `ChechoutHistory` list borrow history of user with `user_id`.
+// The max number of records can be controlled by `limit` argument.
+// `filter` is used in WHERE clause in SQL statement, and `args` is the
+// placeholders for prepared statements.
+func CheckoutHistory(db *sql.DB, user_id int, limit int, filter string, args ...interface{}) ([]Record, error) {
+	if len(filter) != 0 {
+		filter = filter + " AND user_id = ?"
+	} else {
+		filter = "user_id = ?"
+	}
+	query := selectRecord + filter + " ORDER BY borrow_date DESC, record_id DESC LIMIT ?"
+	// fmt.Println(query)
+
+	args = append(args, user_id)
+	args = append(args, limit)
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []Record
+	for rows.Next() {
+		r, err := scanRecord(rows)
+		if err != nil {
+			return nil, err
+		}
+
+		list = append(list, r)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+
+	return list, nil
+}

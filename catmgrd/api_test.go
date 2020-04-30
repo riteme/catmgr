@@ -203,7 +203,7 @@ func parseDate(val string) time.Time {
 
 func TestCheckoutRecord(t *testing.T) {
 	e := Record{
-		RecordID:   1,
+		RecordID:   5,
 		UserID:     6,
 		BookID:     1,
 		Returned:   false,
@@ -212,7 +212,7 @@ func TestCheckoutRecord(t *testing.T) {
 		DueDate:    parseDate("1926-09-17"),
 		FinalDate:  parseDate("2020-02-02"),
 	}
-	r, err := CheckoutRecord(db, 1)
+	r, err := CheckoutRecord(db, 5)
 	if err != nil {
 		t.Error(err)
 	} else if r != e {
@@ -427,5 +427,39 @@ func TestSearchBookByAuthor(t *testing.T) {
 	}
 	if book.Title != book_title {
 		t.Fatalf("incorrect book title. expected: %#v, got: %#v", book_title, book.Title)
+	}
+}
+
+func TestCheckoutHistory(t *testing.T) {
+	today := time.Now()
+	tb := []struct {
+		user_id int
+		limit   int
+		filter  string
+		args    []interface{}
+		id_list []int
+	}{
+		{9, 100, "", nil, []int{4, 3, 2, 1}},
+		{9, 2, "", nil, []int{4, 3}},
+		{9, 100, "return_date IS NULL", nil, []int{2, 1}},
+		{9, 100, "return_date IS NULL AND deadline < ?", []interface{}{today}, []int{2}},
+		{9, 100, "return_date IS NOT NULL", nil, []int{4, 3}},
+		{9, 100, "deadline < ?", []interface{}{today}, []int{4, 2}},
+		{9, 100, "return_date IS NOT NULL AND deadline < ?", []interface{}{today}, []int{4}},
+	}
+
+	for _, e := range tb {
+		list, err := CheckoutHistory(db, e.user_id, e.limit, e.filter, e.args...)
+		if err != nil {
+			t.Error(err)
+		} else if len(list) != len(e.id_list) {
+			t.Errorf("incorrect list length. expected: %d, got: %d", len(e.id_list), len(list))
+		} else {
+			for i, r := range list {
+				if e.id_list[i] != r.RecordID {
+					t.Errorf("incorrect record ID at index %d. expected: %d, got: %d", i, e.id_list[i], r.RecordID)
+				}
+			}
+		}
 	}
 }
