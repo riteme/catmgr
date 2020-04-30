@@ -6,7 +6,7 @@ build/catmgrd: $(CATMGRD_SOURCES)
 	cd catmgrd; go build
 	mv catmgrd/catmgrd build
 
-.PHONY: clean test cover
+.PHONY: clean test cover run
 clean:
 	rm build -rf
 
@@ -15,3 +15,6 @@ test:
 
 cover:
 	cd catmgrd; go test -cover
+
+run: build/catmgrd
+	./build/catmgrd
