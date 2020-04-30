@@ -163,7 +163,12 @@ WHERE `
 
 var ErrBookNotFound = errors.New("Book not found")
 
-func scanBook(row *sql.Row, book *Book) error {
+type RowScanner interface {
+	Scan(dest ...interface{}) error
+}
+
+func scanBook(row RowScanner) (Book, error) {
+	var book Book
 	err := row.Scan(
 		&book.BookID, &book.Title,
 		&book.Author, &book.ISBN,
@@ -172,10 +177,10 @@ func scanBook(row *sql.Row, book *Book) error {
 		&book.Comment,
 	)
 	if err == sql.ErrNoRows {
-		return ErrBookNotFound
+		return Book{}, ErrBookNotFound
 	}
 
-	return err
+	return book, err
 }
 
 // `CheckoutBook` obtains book information with id `book_id`.
@@ -183,10 +188,8 @@ func scanBook(row *sql.Row, book *Book) error {
 // Book information is stored in struct `Book`. When no book
 // matches `book_id`, an `ErrBookNotFound` is returned.
 func CheckoutBook(db *sql.DB, book_id int) (Book, error) {
-	var book Book
 	row := db.QueryRow(selectBook+"book_id=?", book_id)
-
-	err := scanBook(row, &book)
+	book, err := scanBook(row)
 	if err != nil {
 		return Book{}, err
 	}
@@ -200,10 +203,8 @@ func CheckoutBook(db *sql.DB, book_id int) (Book, error) {
 // Book information is stored in struct `Book`. When no book
 // matches `book_id`, an `ErrBookNotFound` is returned.
 func CheckoutISBN(db *sql.DB, isbn string) (Book, error) {
-	var book Book
 	row := db.QueryRow(selectBook+"isbn=?", isbn)
-
-	err := scanBook(row, &book)
+	book, err := scanBook(row)
 	if err != nil {
 		return Book{}, err
 	}
@@ -502,6 +503,58 @@ func UpdateBook(db *sql.DB, book_id, delta_cnt int, info BookInfo) error {
 
 	_, err := db.Exec(buf.String(), args...)
 	return err
+}
+
+// `SearchBookByTitle` returns all books whose title contain `keyword`.
+func SearchBookByTitle(db *sql.DB, keyword string) ([]Book, error) {
+	var list []Book
+	rows, err := db.Query(selectBook+"title LIKE ?", fmt.Sprintf("%%%s%%", keyword))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		book, err := scanBook(rows)
+		if err != nil {
+			return nil, err
+		}
+
+		list = append(list, book)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+
+	return list, nil
+}
+
+// `SearchBookByAuthor` returns all book whose author names contain `keyword`.
+func SearchBookByAuthor(db *sql.DB, keyword string) ([]Book, error) {
+	var list []Book
+	rows, err := db.Query(selectBook+"author LIKE ?", fmt.Sprintf("%%%s%%", keyword))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		book, err := scanBook(rows)
+		if err != nil {
+			return nil, err
+		}
+
+		list = append(list, book)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+
+	return list, nil
 }
 
 // TODO:

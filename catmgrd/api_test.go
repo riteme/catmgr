@@ -398,3 +398,34 @@ func TestUpdateBook(t *testing.T) {
 		t.Errorf("expected: %#v, got: %#v", title, book.Title)
 	}
 }
+
+func TestSearchBookByTitle(t *testing.T) {
+	list, err := SearchBookByTitle(db, "gRaPh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 13 {
+		t.Fatalf("incorrect length! expected: 13, got: %d", len(list))
+	}
+}
+
+func TestSearchBookByAuthor(t *testing.T) {
+	list, err := SearchBookByAuthor(db, "diestel")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(list) != 1 {
+		t.Fatalf("expect only one book, got: %d", len(list))
+	}
+
+	book_id := 13
+	book_title := "Graph Theory"
+	book := list[0]
+	if book.BookID != book_id {
+		t.Fatalf("incorrect book ID. expected: %d, got: %d", book_id, book.BookID)
+	}
+	if book.Title != book_title {
+		t.Fatalf("incorrect book title. expected: %#v, got: %#v", book_title, book.Title)
+	}
+}
