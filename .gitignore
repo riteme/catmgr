@@ -3,3 +3,4 @@ __pycache__/
 build/
 catmgrd/test_config.json
 catmgrd.json
+.mypy_cache/
