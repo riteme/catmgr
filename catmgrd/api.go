@@ -14,63 +14,6 @@ var (
 	year  = day * 365
 )
 
-type RowScanner interface {
-	Scan(dest ...interface{}) error
-}
-
-type Permission struct {
-	Update  bool
-	AddUser bool
-	Borrow  bool
-	Inspect bool
-}
-
-func (e Permission) mask() int {
-	var ret int
-	if e.Update {
-		ret |= 1
-	}
-	if e.AddUser {
-		ret |= 2
-	}
-	if e.Borrow {
-		ret |= 4
-	}
-	if e.Inspect {
-		ret |= 8
-	}
-	return ret
-}
-
-type Book struct {
-	BookID         int
-	Title          string
-	Author         string
-	ISBN           string
-	AvailableCount int
-	Description    string
-	Comment        string
-}
-
-type BookInfo struct {
-	Title       *string
-	Author      *string
-	ISBN        *string
-	Description *string
-	Comment     *string
-}
-
-type Record struct {
-	RecordID   int
-	UserID     int
-	BookID     int
-	Returned   bool
-	ReturnDate time.Time
-	BorrowDate time.Time
-	DueDate    time.Time
-	FinalDate  time.Time
-}
-
 var ErrInvalidUserID = errors.New("invalid user ID")
 var ErrInvalidPassword = errors.New("invalid password")
 var ErrPermissionDenied = errors.New("permission denied")
@@ -528,7 +471,7 @@ func UpdateBook(db *sql.DB, book_id, delta_cnt int, info BookInfo) error {
 
 // `SearchBookByTitle` returns all books whose title contain `keyword`.
 func SearchBookByTitle(db *sql.DB, keyword string) ([]Book, error) {
-	var list []Book
+	list := []Book{}
 	rows, err := db.Query(selectBook+"title LIKE ?", fmt.Sprintf("%%%s%%", keyword))
 	if err != nil {
 		return nil, err
@@ -554,7 +497,7 @@ func SearchBookByTitle(db *sql.DB, keyword string) ([]Book, error) {
 
 // `SearchBookByAuthor` returns all book whose author names contain `keyword`.
 func SearchBookByAuthor(db *sql.DB, keyword string) ([]Book, error) {
-	var list []Book
+	list := []Book{}
 	rows, err := db.Query(selectBook+"author LIKE ?", fmt.Sprintf("%%%s%%", keyword))
 	if err != nil {
 		return nil, err
@@ -599,7 +542,7 @@ func CheckoutHistory(db *sql.DB, user_id int, limit int, filter string, args ...
 	}
 	defer rows.Close()
 
-	var list []Record
+	list := []Record{}
 	for rows.Next() {
 		r, err := scanRecord(rows)
 		if err != nil {
