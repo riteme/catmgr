@@ -71,9 +71,9 @@ type Record struct {
 	FinalDate  time.Time
 }
 
-var ErrInvalidUserID = errors.New("Invalid user ID")
-var ErrInvalidPassword = errors.New("Invalid password")
-var ErrPermissionDenied = errors.New("Permission denied")
+var ErrInvalidUserID = errors.New("invalid user ID")
+var ErrInvalidPassword = errors.New("invalid password")
+var ErrPermissionDenied = errors.New("permission denied")
 
 // `AuthUser` check `login` information against table User
 // in database `db`, which stores the sha1 hashes of passwords.
@@ -111,7 +111,7 @@ func AuthUser(db *sql.DB, user_id int, password string, req Permission) error {
 	return nil
 }
 
-var ErrInvalidUserType = errors.New("Invalid user type name/ID")
+var ErrInvalidUserType = errors.New("invalid user type name/ID")
 
 // `GetUserTypeID` returns `type_id` of `type_name` defined in
 // UserType table.
@@ -165,7 +165,7 @@ SELECT
 FROM Book
 WHERE `
 
-var ErrBookNotFound = errors.New("Book not found")
+var ErrBookNotFound = errors.New("book not found")
 
 func scanBook(row RowScanner) (Book, error) {
 	var book Book
@@ -240,7 +240,7 @@ func scanRecord(row RowScanner) (Record, error) {
 	return r, nil
 }
 
-var ErrInvalidRecordID = errors.New("Invalid record ID")
+var ErrInvalidRecordID = errors.New("invalid record ID")
 
 // CheckoutRecord retrieves record with `record_id`.
 //
@@ -259,9 +259,9 @@ func CheckoutRecord(db *sql.DB, record_id int) (Record, error) {
 	return r, err
 }
 
-var ErrNoAvailableBook = errors.New("No available book")
-var ErrInvalidBookID = errors.New("Invalid book ID")
-var ErrSuspendedUser = errors.New("User suspended: you have more than 3 overdue books")
+var ErrNoAvailableBook = errors.New("no available book")
+var ErrInvalidBookID = errors.New("invalid book ID")
+var ErrSuspendedUser = errors.New("user suspended: you have more than 3 overdue books")
 
 // BorrowBook attempts to borrow a book with `book_id` and add a record.
 //
@@ -347,10 +347,10 @@ func BorrowBook(db *sql.DB, user_id, book_id int) (int, error) {
 	return int(record_id), nil
 }
 
-var ErrAlreadyReturned = errors.New("This book has been returned")
-var ErrOverdue = errors.New("Cannot extend deadline for overdue records")
-var ErrNotExtensible = errors.New("Do extend deadline in the last week")
-var ErrFinalDeadline = errors.New("Must return book in three months")
+var ErrAlreadyReturned = errors.New("this book has been returned")
+var ErrOverdue = errors.New("cannot extend deadline for overdue records")
+var ErrNotExtensible = errors.New("do extend deadline in the last week")
+var ErrFinalDeadline = errors.New("must return book in three months")
 
 // `ExtendDeadline` tries to extend deadline of a specific record
 // with `record_id` for a month. Deadlines are not allowed to be later than
@@ -482,6 +482,16 @@ func NewBook(db *sql.DB) (int, error) {
 }
 
 func UpdateBook(db *sql.DB, book_id, delta_cnt int, info BookInfo) error {
+	var tmp int
+	err := db.QueryRow("SELECT book_id FROM Book WHERE book_id=?", book_id).
+		Scan(&tmp)
+	if err == sql.ErrNoRows {
+		return ErrInvalidBookID
+	}
+	if err != nil {
+		return err
+	}
+
 	var buf strings.Builder
 	buf.WriteString("UPDATE Book SET ")
 
@@ -512,7 +522,7 @@ func UpdateBook(db *sql.DB, book_id, delta_cnt int, info BookInfo) error {
 	args = append(args, delta_cnt)
 	args = append(args, book_id)
 
-	_, err := db.Exec(buf.String(), args...)
+	_, err = db.Exec(buf.String(), args...)
 	return err
 }
 

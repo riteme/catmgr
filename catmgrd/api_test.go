@@ -1,9 +1,6 @@
 package main
 
 import (
-	"database/sql"
-	"encoding/json"
-	"fmt"
 	"math/rand"
 	"os"
 	"strings"
@@ -13,39 +10,15 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-var db *sql.DB
-
 func TestMain(m *testing.M) {
 	rand.Seed(time.Now().UnixNano())
 
-	fp, err := os.Open("test_config.json")
+	config, err := LoadMySQLConfig("test_config.json")
 	if err != nil {
 		panic(err)
 	}
 
-	var config struct {
-		Username string
-		Password string
-		Protocol string
-		Address  string
-		Port     int
-		Database string
-	}
-	err = json.NewDecoder(fp).Decode(&config)
-	if err != nil {
-		panic(err)
-	}
-
-	dsn := fmt.Sprintf("%s:%s@%s(%s:%d)/%s?parseTime=true",
-		config.Username, config.Password,
-		config.Protocol, config.Address,
-		config.Port, config.Database)
-	db, err = sql.Open("mysql", dsn)
-	if err != nil {
-		panic(err)
-	}
-
-	err = db.Ping()
+	db, err = ConnectMySQL(config) // `db` is declared in main.go
 	if err != nil {
 		panic(err)
 	}
@@ -354,6 +327,11 @@ func TestNewBook(t *testing.T) {
 }
 
 func TestUpdateBook(t *testing.T) {
+	err := UpdateBook(db, -1, 0, BookInfo{})
+	if err != ErrInvalidBookID {
+		t.Fatal(err)
+	}
+
 	book_id, err := NewBook(db)
 	if err != nil {
 		t.Fatal(err)
