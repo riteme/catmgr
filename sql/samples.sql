@@ -9,14 +9,15 @@ VALUES
 INSERT INTO User
     (type_id, name, token)
 VALUES
-    (1, "root", "dc76e9f0c0006e8f919e0c515c66dbba3982f785"),    # root
-    (2, "admin", "d033e22ae348aeb5660fc2140aec35850c4da997"),   # admin
-    (3, "riteme", "7c4a8d09ca3762af61e59520943dc26494f8941b"),  # 123456
-    (3, "nano", "7c4a8d09ca3762af61e59520943dc26494f8941b"),    # 123456
-    (4, "cxk", "dd5fef9c1c1da1394d6d34b248c51be2ad740840"),     # 654321
-    (3, "ayaya", "7c4a8d09ca3762af61e59520943dc26494f8941b"),   # 123456
-    (3, "lemon", "7c4a8d09ca3762af61e59520943dc26494f8941b"),   # 123456
-    (3, "test", "7c4a8d09ca3762af61e59520943dc26494f8941b");   # 123456
+    (1, "root", "dc76e9f0c0006e8f919e0c515c66dbba3982f785"),    #1 root
+    (2, "admin", "d033e22ae348aeb5660fc2140aec35850c4da997"),   #2 admin
+    (3, "riteme", "7c4a8d09ca3762af61e59520943dc26494f8941b"),  #3 123456
+    (3, "nano", "7c4a8d09ca3762af61e59520943dc26494f8941b"),    #4 123456
+    (4, "cxk", "dd5fef9c1c1da1394d6d34b248c51be2ad740840"),     #5 654321
+    (3, "ayaya", "7c4a8d09ca3762af61e59520943dc26494f8941b"),   #6 123456
+    (3, "lemon", "7c4a8d09ca3762af61e59520943dc26494f8941b"),   #7 123456
+    (3, "test", "7c4a8d09ca3762af61e59520943dc26494f8941b"),    #8 123456
+    (3, "steve", "7c4a8d09ca3762af61e59520943dc26494f8941b");   #9 123456
 
 -- ALL FROM springer.com
 INSERT INTO Book
@@ -48,6 +49,14 @@ VALUES
     ("Graph Drawing", "Whitesides, Sue H. (Ed.)", "978-3-540-37623-1", 6, "6th International Symposium, GD '98 Montreal, Canada, August 13-15, 1998 Proceedings", "conference"),
     ("Graph Drawing", "Kratochvil, Jan (Ed.)", "978-3-540-46648-2", 1, "7th International Symposium, GD'99, Stirin Castle, Czech Republic, September 15-19, 1999 Proceedings", NULL),
     ("Encyclopedia of Algorithms", "Kao, Ming-Yang (Ed.)", "978-1-4939-2865-1", 1, "Covers a wealth of problems currently relevant in diverse fields including biology, economics, financial software and computer science, amongst others", "TOO EXPENSIVE!");
+
+INSERT INTO Record
+    (user_id, book_id, return_date, borrow_date, deadline, final_deadline)
+VALUES
+    (9, 5, NULL, "2020-02-01", "2999-01-01", "2999-01-02"),         #1 normal
+    (9, 5, NULL, "2020-02-02", "2020-02-19", "2020-03-04"),         #2 overdue
+    (9, 5, "2020-02-04", "2020-02-03", "2999-02-07", "2999-02-07"), #3 normal return
+    (9, 5, "2020-03-04", "2020-02-04", "2020-02-29", "2020-02-29"); #4 overdue return
 
 INSERT INTO Record
     (user_id, book_id, borrow_date, deadline, final_deadline)
