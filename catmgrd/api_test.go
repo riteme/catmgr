@@ -203,6 +203,7 @@ func TestCheckoutRecord(t *testing.T) {
 	e := Record{
 		RecordID:   5,
 		UserID:     6,
+		Username:   "ayaya",
 		BookID:     1,
 		Returned:   false,
 		ReturnDate: time.Time{},

@@ -183,17 +183,17 @@ func CheckoutISBN(db *sql.DB, isbn string) (Book, error) {
 
 var selectRecord = `
 SELECT
-	record_id, user_id, book_id,
+	record_id, user_id, name, book_id,
 	return_date, borrow_date,
 	deadline, final_deadline
-FROM Record
+FROM Record JOIN User USING (user_id)
 WHERE `
 
 func scanRecord(row RowScanner) (Record, error) {
 	var return_date sql.NullTime
 	var r Record
 	err := row.Scan(
-		&r.RecordID, &r.UserID, &r.BookID,
+		&r.RecordID, &r.UserID, &r.Username, &r.BookID,
 		&return_date, &r.BorrowDate,
 		&r.DueDate, &r.FinalDate,
 	)

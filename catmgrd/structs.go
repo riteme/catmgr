@@ -97,6 +97,7 @@ type BookInfo struct {
 type Record struct {
 	RecordID   int       `json:"record_id"`
 	UserID     int       `json:"user_id"`
+	Username   string    `json:"username"`
 	BookID     int       `json:"book_id"`
 	Returned   bool      `json:"returned"`
 	ReturnDate time.Time `json:"return_date"`

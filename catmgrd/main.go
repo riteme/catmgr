@@ -269,7 +269,7 @@ func handleList(resp http.ResponseWriter, req *http.Request) {
 	case "not-returned":
 		filter = "return_date IS NULL"
 	case "overdue":
-		filter = "return_date IS NOT NULL AND deadline < ?"
+		filter = "return_date IS NULL AND deadline < ?"
 		args = []interface{}{today}
 	default:
 		SendJSON(resp, NewMError("invalid filter type"))
