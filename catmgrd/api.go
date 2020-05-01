@@ -14,7 +14,7 @@ var (
 	year  = day * 365
 )
 
-var ErrInvalidUserID = errors.New("invalid user ID")
+var ErrInvalidUser = errors.New("invalid username/user ID")
 var ErrInvalidPassword = errors.New("invalid password")
 var ErrPermissionDenied = errors.New("permission denied")
 
@@ -23,9 +23,9 @@ var ErrPermissionDenied = errors.New("permission denied")
 // Requested permissions `req` are encapsulated in Permission struct.
 // Auth success if no error returned.
 //
-// May return `ErrInvalidUserID`, `ErrInvalidPassword` or
+// May return `ErrInvalidUser`, `ErrInvalidPassword` or
 // `ErrPermissionDenied`.
-func AuthUser(db *sql.DB, user_id int, password string, req Permission) error {
+func AuthUser(db *sql.DB, user interface{}, password string, req Permission) error {
 	hash_bytes := sha1.Sum([]byte(password))
 	hash := fmt.Sprintf("%x", hash_bytes)
 
@@ -33,11 +33,24 @@ func AuthUser(db *sql.DB, user_id int, password string, req Permission) error {
 	var perm Permission
 	query := `SELECT token, can_update, can_adduser, can_borrow, can_inspect
 		FROM User JOIN UserType USING (type_id)
-		WHERE user_id=?`
-	err := db.QueryRow(query, user_id).
-		Scan(&token, &perm.Update, &perm.AddUser, &perm.Borrow, &perm.Inspect)
+		WHERE `
+
+	var row *sql.Row
+	switch v := user.(type) {
+	case int:
+		row = db.QueryRow(query+"user_id = ?", v)
+	case float64:
+		user_id := int(v)
+		row = db.QueryRow(query+"user_id = ?", user_id)
+	case string:
+		row = db.QueryRow(query+"name = ?", v)
+	default:
+		return ErrInvalidUser
+	}
+
+	err := row.Scan(&token, &perm.Update, &perm.AddUser, &perm.Borrow, &perm.Inspect)
 	if err == sql.ErrNoRows {
-		return ErrInvalidUserID
+		return ErrInvalidUser
 	}
 	if err != nil {
 		return err
@@ -54,6 +67,19 @@ func AuthUser(db *sql.DB, user_id int, password string, req Permission) error {
 	return nil
 }
 
+func GetUserID(db *sql.DB, name string) (int, error) {
+	var user_id int
+	query := "SELECT user_id FROM User WHERE name=?"
+	err := db.QueryRow(query, name).Scan(&user_id)
+	if err == sql.ErrNoRows {
+		return -1, ErrInvalidUser
+	}
+	if err != nil {
+		return -1, err
+	}
+	return user_id, nil
+}
+
 var ErrInvalidUserType = errors.New("invalid user type name/ID")
 
 // `GetUserTypeID` returns `type_id` of `type_name` defined in
@@ -63,7 +89,7 @@ var ErrInvalidUserType = errors.New("invalid user type name/ID")
 // in table UserType.
 func GetUserTypeID(db *sql.DB, type_name string) (int, error) {
 	var type_id int
-	query := `SELECT type_id FROM UserType WHERE type_name=?`
+	query := "SELECT type_id FROM UserType WHERE type_name=?"
 	err := db.QueryRow(query, type_name).Scan(&type_id)
 	if err == sql.ErrNoRows {
 		return -1, ErrInvalidUserType

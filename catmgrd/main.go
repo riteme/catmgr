@@ -55,11 +55,11 @@ func handleNew(resp http.ResponseWriter, req *http.Request) {
 	log.Println(req.RemoteAddr, "access \"/new\"")
 
 	var params struct {
-		UserID   int    `json:"user_id"`
-		Password string `json:"password"`
+		User     interface{} `json:"user"`
+		Password string      `json:"password"`
 	}
 	if !DecodePayload(resp, req, &params) ||
-		!AuthRequest(resp, req, params.UserID, params.Password, Permission{Update: true}) {
+		!AuthRequest(resp, req, params.User, params.Password, Permission{Update: true}) {
 		return
 	}
 
@@ -77,18 +77,18 @@ func handleUpdate(resp http.ResponseWriter, req *http.Request) {
 	log.Println(req.RemoteAddr, "access \"/update\"")
 
 	var params struct {
-		UserID      int     `json:"user_id"`
-		Password    string  `json:"password"`
-		BookID      int     `json:"book_id"`
-		Diff        *int    `json:"diff"`
-		Title       *string `json:"title"`
-		Author      *string `json:"author"`
-		ISBN        *string `json:"isbn"`
-		Description *string `json:"description"`
-		Comment     *string `json:"comment"`
+		User        interface{} `json:"user"`
+		Password    string      `json:"password"`
+		BookID      int         `json:"book_id"`
+		Diff        *int        `json:"diff"`
+		Title       *string     `json:"title"`
+		Author      *string     `json:"author"`
+		ISBN        *string     `json:"isbn"`
+		Description *string     `json:"description"`
+		Comment     *string     `json:"comment"`
 	}
 	if !DecodePayload(resp, req, &params) ||
-		!AuthRequest(resp, req, params.UserID, params.Password, Permission{Update: true}) {
+		!AuthRequest(resp, req, params.User, params.Password, Permission{Update: true}) {
 		return
 	}
 
@@ -121,11 +121,11 @@ func handleAddUser(resp http.ResponseWriter, req *http.Request) {
 	log.Println(req.RemoteAddr, "access \"/adduser\"")
 
 	var params struct {
-		UserID      int     `json:"user_id"`
-		Password    string  `json:"password"`
-		NewUserType *string `json:"new_user_type"`
-		NewUsername *string `json:"new_username"`
-		NewPassword *string `json:"new_password"`
+		User        interface{} `json:"user"`
+		Password    string      `json:"password"`
+		NewUserType *string     `json:"new_user_type"`
+		NewUsername *string     `json:"new_username"`
+		NewPassword *string     `json:"new_password"`
 	}
 	if !DecodePayload(resp, req, &params) {
 		return
@@ -142,7 +142,7 @@ func handleAddUser(resp http.ResponseWriter, req *http.Request) {
 		SendJSON(resp, NewMError("missing field: new_password"))
 		return
 	}
-	if !AuthRequest(resp, req, params.UserID, params.Password, Permission{AddUser: true}) {
+	if !AuthRequest(resp, req, params.User, params.Password, Permission{AddUser: true}) {
 		return
 	}
 
@@ -216,11 +216,11 @@ func handleList(resp http.ResponseWriter, req *http.Request) {
 	log.Println(req.RemoteAddr, "access \"/list\"")
 
 	var params struct {
-		UserID   int    `json:"user_id"`
-		Password string `json:"password"`
-		TargetID int    `json:"target_id"`
-		Filter   string `json:"filter"`
-		Limit    *int   `json:"limit"`
+		User     interface{} `json:"user"`
+		Password string      `json:"password"`
+		Target   interface{} `json:"target"`
+		Filter   string      `json:"filter"`
+		Limit    *int        `json:"limit"`
 	}
 	if !DecodePayload(resp, req, &params) {
 		return
@@ -231,8 +231,32 @@ func handleList(resp http.ResponseWriter, req *http.Request) {
 		limit = *params.Limit
 	}
 
-	perms := Permission{Inspect: params.UserID != params.TargetID}
-	if !AuthRequest(resp, req, params.UserID, params.Password, perms) {
+	user_id, err := ObtainUserID(params.User)
+	if err == ErrInvalidUser {
+		log.Println(req.RemoteAddr, err)
+		SendJSON(resp, err)
+		return
+	}
+	if err != nil {
+		log.Println(req.RemoteAddr, err)
+		SendJSON(resp, NewMError("an error occurred during retrieving user"))
+		return
+	}
+
+	target_id, err := ObtainUserID(params.Target)
+	if err == ErrInvalidUser {
+		log.Println(req.RemoteAddr, err)
+		SendJSON(resp, err)
+		return
+	}
+	if err != nil {
+		log.Println(req.RemoteAddr, err)
+		SendJSON(resp, NewMError("an error occurred during retrieving user"))
+		return
+	}
+
+	perms := Permission{Inspect: user_id != target_id}
+	if !AuthRequest(resp, req, user_id, params.Password, perms) {
 		return
 	}
 
@@ -252,7 +276,7 @@ func handleList(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	list, err := CheckoutHistory(db, params.TargetID, limit, filter, args...)
+	list, err := CheckoutHistory(db, target_id, limit, filter, args...)
 	if err != nil {
 		log.Println(req.RemoteAddr, err)
 		SendJSON(resp, NewMError("an error occurred during retrieving borrow history"))
@@ -265,16 +289,23 @@ func handleBorrow(resp http.ResponseWriter, req *http.Request) {
 	log.Println(req.RemoteAddr, "access \"/borrow\"")
 
 	var params struct {
-		UserID   int    `json:"user_id"`
-		Password string `json:"password"`
-		BookID   int    `json:"book_id"`
+		User     interface{} `json:"user"`
+		Password string      `json:"password"`
+		BookID   int         `json:"book_id"`
 	}
 	if !DecodePayload(resp, req, &params) ||
-		!AuthRequest(resp, req, params.UserID, params.Password, Permission{Borrow: true}) {
+		!AuthRequest(resp, req, params.User, params.Password, Permission{Borrow: true}) {
 		return
 	}
 
-	record_id, err := BorrowBook(db, params.UserID, params.BookID)
+	user_id, err := ObtainUserID(params.User)
+	if err != nil {
+		log.Println(req.RemoteAddr, err)
+		SendJSON(resp, NewMError("an error occurred during retrieving user"))
+		return
+	}
+
+	record_id, err := BorrowBook(db, user_id, params.BookID)
 	if err == ErrInvalidBookID || err == ErrSuspendedUser ||
 		err == ErrNoAvailableBook {
 		log.Println(req.RemoteAddr, err)
@@ -292,13 +323,13 @@ func handleExtend(resp http.ResponseWriter, req *http.Request) {
 	log.Println(req.RemoteAddr, "access \"/extend\"")
 
 	var params struct {
-		UserID   int    `json:"user_id"`
-		Password string `json:"password"`
-		RecordID int    `json:"record_id"`
+		User     interface{} `json:"user"`
+		Password string      `json:"password"`
+		RecordID int         `json:"record_id"`
 	}
 	if !DecodePayload(resp, req, &params) ||
-		!AuthRequest(resp, req, params.UserID, params.Password, Permission{}) ||
-		!CheckRecordID(resp, req, params.RecordID, params.UserID) {
+		!AuthRequest(resp, req, params.User, params.Password, Permission{}) ||
+		!CheckRecordID(resp, req, params.RecordID, params.User) {
 		return
 	}
 
@@ -320,13 +351,13 @@ func handleReturn(resp http.ResponseWriter, req *http.Request) {
 	log.Println(req.RemoteAddr, "access \"/return\"")
 
 	var params struct {
-		UserID   int    `json:"user_id"`
-		Password string `json:"password"`
-		RecordID int    `json:"record_id"`
+		User     interface{} `json:"user"`
+		Password string      `json:"password"`
+		RecordID int         `json:"record_id"`
 	}
 	if !DecodePayload(resp, req, &params) ||
-		!AuthRequest(resp, req, params.UserID, params.Password, Permission{}) ||
-		!CheckRecordID(resp, req, params.RecordID, params.UserID) {
+		!AuthRequest(resp, req, params.User, params.Password, Permission{}) ||
+		!CheckRecordID(resp, req, params.RecordID, params.User) {
 		return
 	}
 

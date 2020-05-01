@@ -34,14 +34,14 @@ func TestMain(m *testing.M) {
 
 func TestAuthUser(t *testing.T) {
 	tb := []struct {
-		userID   int
+		user     interface{}
 		password string
 		req      Permission
 		err      error
 	}{
 		{1, "root", Permission{true, true, true, true}, nil},
 		{2, "admin", Permission{true, true, false, true}, nil},
-		{233, "admin", Permission{true, true, false, true}, ErrInvalidUserID},
+		{233, "admin", Permission{true, true, false, true}, ErrInvalidUser},
 		{2, "admin", Permission{true, true, true, true}, ErrPermissionDenied},
 		{2, "admin", Permission{false, false, false, true}, nil},
 		{2, "admin", Permission{false, false, false, false}, nil},
@@ -51,15 +51,40 @@ func TestAuthUser(t *testing.T) {
 		{5, "654321", Permission{false, false, true, false}, ErrPermissionDenied},
 		{5, "654321", Permission{false, false, false, false}, nil},
 		{5, "", Permission{false, false, false, false}, ErrInvalidPassword},
-		{19260817, "", Permission{false, false, false, false}, ErrInvalidUserID},
-		{0, "", Permission{false, false, false, false}, ErrInvalidUserID},
-		{-1, "", Permission{false, false, false, false}, ErrInvalidUserID},
+		{19260817, "", Permission{false, false, false, false}, ErrInvalidUser},
+		{0, "", Permission{false, false, false, false}, ErrInvalidUser},
+		{-1, "", Permission{false, false, false, false}, ErrInvalidUser},
+		{"root", "root", Permission{true, true, true, true}, nil},
+		{"admin", "admin", Permission{true, true, false, true}, nil},
+		{"nobody", "123456", Permission{false, false, false, false}, ErrInvalidUser},
 	}
 
 	for _, e := range tb {
-		err := AuthUser(db, e.userID, e.password, e.req)
+		err := AuthUser(db, e.user, e.password, e.req)
 		if err != e.err {
 			t.Errorf("expected: %+v, got: %+v", e.err, err)
+		}
+	}
+}
+
+func TestGetUserID(t *testing.T) {
+	tb := []struct {
+		name    string
+		user_id int
+		err     error
+	}{
+		{"root", 1, nil},
+		{"admin", 2, nil},
+		{"riteme", 3, nil},
+		{"nobody", -1, ErrInvalidUser},
+	}
+
+	for _, e := range tb {
+		got, err := GetUserID(db, e.name)
+		if err != e.err {
+			t.Errorf("expected: %+v, got: %+v", e.err, err)
+		} else if got != e.user_id {
+			t.Errorf("expected: %d, got: %d", e.user_id, got)
 		}
 	}
 }

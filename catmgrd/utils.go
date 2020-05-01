@@ -55,9 +55,9 @@ func SendJSON(resp http.ResponseWriter, v interface{}) {
 	resp.Header().Set("Content-Type", "application/json")
 
 	var err error
-	switch v.(type) {
+	switch t := v.(type) {
 	case error:
-		err = json.NewEncoder(resp).Encode(MError{"failed", v.(error).Error()})
+		err = json.NewEncoder(resp).Encode(MError{"failed", t.Error()})
 	default:
 		err = json.NewEncoder(resp).Encode(v)
 	}
@@ -78,9 +78,9 @@ func DecodePayload(resp http.ResponseWriter, req *http.Request, v interface{}) b
 	return true
 }
 
-func AuthRequest(resp http.ResponseWriter, req *http.Request, user_id int, password string, perm Permission) bool {
-	err := AuthUser(db, user_id, password, perm)
-	if err == ErrInvalidUserID || err == ErrInvalidPassword || err == ErrPermissionDenied {
+func AuthRequest(resp http.ResponseWriter, req *http.Request, user interface{}, password string, perm Permission) bool {
+	err := AuthUser(db, user, password, perm)
+	if err == ErrInvalidUser || err == ErrInvalidPassword || err == ErrPermissionDenied {
 		log.Println(req.RemoteAddr, "AuthRequest", err)
 		SendJSON(resp, MError{"failed", err.Error()})
 		return false
@@ -93,7 +93,14 @@ func AuthRequest(resp http.ResponseWriter, req *http.Request, user_id int, passw
 	return true
 }
 
-func CheckRecordID(resp http.ResponseWriter, req *http.Request, record_id, user_id int) bool {
+func CheckRecordID(resp http.ResponseWriter, req *http.Request, record_id int, user interface{}) bool {
+	user_id, err := ObtainUserID(user)
+	if err != nil {
+		log.Println(req.RemoteAddr, "CheckRecordID", err)
+		SendJSON(resp, NewMError("an error occurred during retrieving user"))
+		return false
+	}
+
 	r, err := CheckoutRecord(db, record_id)
 	if err == ErrInvalidRecordID {
 		log.Println(req.RemoteAddr, "CheckRecordID", err)
@@ -110,4 +117,15 @@ func CheckRecordID(resp http.ResponseWriter, req *http.Request, record_id, user_
 		return false
 	}
 	return true
+}
+
+func ObtainUserID(v interface{}) (int, error) {
+	switch t := v.(type) {
+	case int:
+		return t, nil
+	case string:
+		return GetUserID(db, t)
+	default:
+		return -1, ErrInvalidUser
+	}
 }
