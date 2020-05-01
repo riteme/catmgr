@@ -47,7 +47,7 @@ If you just want to build the executable binary file, type `make` instead. The s
 ```json
 {
     "username": "root",
-    "password": "root",
+    "password": "123456",
     "protocol": "tcp",
     "address": "localhost",
     "port": 3306,
