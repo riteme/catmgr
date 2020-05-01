@@ -12,6 +12,12 @@
     * click (<https://click.palletsprojects.com/en/7.x/>)
     * requests (<https://requests.readthedocs.io/en/master/>)
 
+Install prerequisites:
+
+```
+sudo pip3 install click requests
+```
+
 ## Setup
 
 ### Database
