@@ -91,7 +91,7 @@ make test
 <st>基本情况</st>前端使用 Python 3 编写，提供了一个简单的命令行交互。
 
 ```
-chmox +x ./catmgr-cli.py
+chmod +x ./catmgr-cli.py
 ./catmgr-cli.py --help
 ```
 
