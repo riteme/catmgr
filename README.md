@@ -2,6 +2,7 @@
 
 ## Prerequisites
 
+* MySQL / MariaDB
 * `catmgrd`
     * Go 1.14
     * make (<https://www.gnu.org/software/make/>)
@@ -56,7 +57,7 @@ where you can fill the username and password in the first two fileds. By default
 
 ### `catmgr-cli`
 
-The file `catmgr-cli.py` is a simple CLI interface to communicate with `catmgrd` server. Type `./catmgr-cli.py --help` to see all available commands:
+The file `catmgr-cli.py` is a simple CLI interface to communicate with `catmgrd` server. Type `python3 catmgr-cli.py --help` to see all available commands:
 
 ```
 Usage: catmgr-cli.py [OPTIONS] COMMAND [ARGS]...
