@@ -68,7 +68,7 @@ func handleNew(resp http.ResponseWriter, req *http.Request) {
 		log.Println(req.RemoteAddr, err)
 		SendJSON(resp, NewMError("error occurred during adding a book"))
 	} else {
-		log.Printf(req.RemoteAddr, "new book: %d", book_id)
+		log.Printf("new book: %d", book_id)
 		SendJSON(resp, MNewBook{"ok", book_id})
 	}
 }
