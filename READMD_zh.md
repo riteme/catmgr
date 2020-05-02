@@ -53,7 +53,7 @@ Record(record_id, user_id, book_id, return_date, borrow_date, deadline, final_de
 * `/extend`：延长借阅期限。
 * `/return`：返还书籍。
 
-以上接口除了 `/show` 和 `/list` 外，均需要提供用户名/用户 ID 和密码，用于后端进行权限验证。数据交互使用 JSON 编码。目前用户登录信息是直接在数据中明文传送的，没有使用 HTTPS，可能存在安全隐患。
+以上接口除 `/show` 外，均需要提供用户名/用户 ID 和密码，用于后端进行权限验证。数据交互使用 JSON 编码。目前用户登录信息是直接在数据中明文传送的，没有使用 HTTPS，可能存在安全隐患。
 
 代码仓库中 `catmgrd/main.go` 是服务器的主体部分，负责对 HTTP 请求进行处理。`catmgrd/api.go` 是与数据库交互的部分，`catmgrd/api_test.go` 是这一部分的单元测试代码。
 
@@ -91,7 +91,8 @@ make test
 <st>基本情况</st>前端使用 Python 3 编写，提供了一个简单的命令行交互。
 
 ```
-chmod +x ./catmgr-cli.py
+sudo pip3 install click requests  # 依赖项
+chmod +x ./catmgr-cli.py          # 执行权限
 ./catmgr-cli.py --help
 ```
 
